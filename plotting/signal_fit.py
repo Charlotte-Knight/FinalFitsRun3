@@ -9,7 +9,6 @@ title_dict = {
       #"mean":r"$\bar{m}_{\gamma\gamma}$",
       "mean":r"$\mu$",
       "sigma":r"$\sigma$",
-      "x0":r"$\bar{m}_{\gamma\gamma}$",
       "sigmaLR":r"$\sigma$",
       "alphaL":r"$\alpha_L$",
       "nL":r"$n_L$",
@@ -43,23 +42,21 @@ def plotFit(datahist, x, pdf, params, savepath, xlim=None):
   bin_width = bin_centers[1] - bin_centers[0]
   plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
 
-  #sf = sum(hist) * bin_width
   sf = datahist.sumEntries() * bin_width
   xi = np.linspace(xlim[0], xlim[1], 1000)
   plt.plot(xi, ptools.getVal(pdf, x, xi)*sf)
 
   text = str(pdf.getTitle()) + " Fit"
-  #plt.text(min(xi), max(hist+uncert), text, verticalalignment='top')
   plt.text(0.05, 0.95, text, verticalalignment='top', transform=plt.gca().transAxes)
   text = ""
   for param in params:
     text += textify(str(param.getTitle())) + r"$=%.2f \pm %.2f$"%(param.getVal(), param.getError()) + "\n"
-  #plt.text(min(xi), max(hist+uncert), text, verticalalignment='top', fontsize='small')
   plt.text(0.06, 0.89, text, verticalalignment='top', transform=plt.gca().transAxes, fontsize='small')
   chi2 = ((hist-ptools.getVal(pdf, x, bin_centers)*sf)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
   plt.text(max(xi), max(hist+uncert), r"$\chi^2 / dof$=%.2f"%chi2, verticalalignment='top', horizontalalignment='right')
  
   plt.xlabel(r"$m_{\gamma\gamma}$")
+  plt.ylim(bottom=0)
   plt.savefig(f"{savepath}.png")
   plt.savefig(f"{savepath}.pdf")
 

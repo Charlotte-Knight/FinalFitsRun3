@@ -1,37 +1,57 @@
-import ROOT
-import numpy as np
 import matplotlib.pyplot as plt
 import mplhep
 mplhep.style.use("CMS")
+import os
+import common.tools as tools
+import logging
+log = logging.getLogger(__name__)
 
-def RooDataHist2Numpy(datahist, xlim=None):
-  nBins = datahist.get()[0].getBins()
-  
-  bin_centers = []
-  hist = []
+title_dict = {
+      "mean":r"$\mu$",
+      "sigma":r"$\sigma$",
+      "sigmaLR":r"$\sigma$",
+      "alphaL":r"$\alpha_L$",
+      "nL":r"$n_L$",
+      "alphaR":r"$\alpha_R$",
+      "nR":r"$n_R$",
+      "c":r"$c$"
+      }
 
-  for i in range(nBins):
-    bin_center = datahist.get(i)[0].getVal()
-    if (xlim is None) or (xlim[0] <= bin_center <= xlim[1]):
-      bin_centers.append(datahist.get(i)[0].getVal())
-      hist.append(datahist.weight(i))
-
-  bin_centers = np.array(bin_centers)
-  hist = np.array(hist)
-  uncert = np.sqrt(hist)
-  #uncert[uncert==0] = uncert[uncert!=0].min()
-  uncert[uncert==0] = 1
-
-  return bin_centers, hist, uncert
-
-def getVal(pdf, xvar, xval):
-  if hasattr(xval, "__len__"):
-    vals = []
-    for xi in xval:
-      xvar.setVal(xi)
-      vals.append(pdf.getVal())
-    val = np.array(vals)
+def textify(title):
+  if (title not in title_dict) and (title[:-1] not in title_dict):
+    return title
   else:
-    xvar.setVal(xval)
-    val = pdf.getVal()
-  return val / pdf.createIntegral(xvar).getVal()
+    if title[-1].isdigit():
+      idx = int(title[-1])
+      title = title[:-1]
+    else:
+      idx = None
+
+    title = title_dict[title]
+    if idx is not None:
+      title = title[:-1] + "_{%d}$"%idx
+    
+    return title
+  
+def savefig(savepath, extensions=["png", "pdf"], keep=False):
+  directory = "/".join(savepath.split("/")[:-1])
+  os.makedirs(directory, exist_ok=True)
+  for extension in extensions:
+    log.info(f"Saving figure to {savepath}.{extension}")
+    plt.savefig(f"{savepath}.{extension}")
+  if not keep:
+    plt.clf()
+
+def cmslabel():
+  mplhep.cms.label("Work in Progress", data=True, lumi=138, com=13.6)
+
+def histPlotTemplate(datahist, xlim):
+  bin_centers, hist, uncert = tools.RooDataHist2Numpy(datahist, xlim=xlim)
+  bin_width = bin_centers[1] - bin_centers[0]
+  plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
+
+  plt.xlabel(r"$m_{\gamma\gamma}$ [GeV]")
+  plt.ylabel(f"Events / ( {bin_width:.2g} GeV )")
+  plt.ylim(bottom=0)
+  cmslabel()
+  return bin_width

@@ -35,19 +35,6 @@ def getVal(pdf, xvar, xval):
     val = pdf.getVal()
   return val / pdf.createIntegral(xvar).getVal()
 
-def makeAsimovDataHist(x, pdf, norm=1):
-  asimov_datahist = ROOT.RooDataHist("asimov_datahist", "asimov_datahist", x)
-  nBins = asimov_datahist.get()[0].getBins()
-
-  bin_centers = [asimov_datahist.get(i)[0].getVal() for i in range(nBins)]
-  print(bin_centers)
-  pdf_vals = getVal(pdf, x, bin_centers)
-  for i in range(nBins):
-    asimov_datahist.get(i)
-    asimov_datahist.set(pdf_vals[i]*norm)
-  
-  return asimov_datahist
-
 def readEvents(filename):
   log.info(f"Loading workspace from {filename}")
   f = ROOT.TFile(filename)

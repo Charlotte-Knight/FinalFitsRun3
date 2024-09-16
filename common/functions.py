@@ -3,6 +3,8 @@ import numpy as np
 import logging
 log = logging.getLogger(__name__)
 
+functions = ["Gaussian", "DCB", "Bernstein", "Exponential", "Power", "ExpPoly", "Chebychev"]
+
 def randomiseVars(vars, skip_constant=True, seed=None):
   np.random.seed(seed)
   for v in vars:

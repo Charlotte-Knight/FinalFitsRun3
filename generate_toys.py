@@ -51,7 +51,7 @@ if __name__=="__main__":
   parser.add_argument("--nevents", "-n", type=int, default=10000, help="Number of events in a generated dataset")
   parser.add_argument("--randomise", action="store_true", help="Randomise the function parameters")
   parser.add_argument("--ndatasets", type=int, default=0, 
-                        help="Set to non-zero value to generate multiple datasets. Will be named 'data0', 'data1'...")
+                      help="Set to non-zero value to generate multiple datasets. Will be named 'data0', 'data1'...")
   parser.add_argument("--xlim", nargs=2, type=float, default=(100,180), help="Limits on x. Default is 100,180.")
   parser.add_argument("--nbins", type=int, default=None, help="Number of bins in histogram. Default is 1/GeV.")
   parser.add_argument("--asimov", action="store_true", help="Generated asimov dataset(s)")

@@ -40,8 +40,8 @@ def readEvents(filename):
   f = ROOT.TFile(filename)
   w = f.Get("w")
   x = w.var("x")
-  dataset = w.data("data")
-  return x, dataset
+  data = w.data("data")
+  return x, data
 
 def setRanges(x, fit_ranges):
   x.setRange("Full", x.getMin(), x.getMax())

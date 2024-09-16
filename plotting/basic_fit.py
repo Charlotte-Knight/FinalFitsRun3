@@ -39,18 +39,20 @@ def plotFit(datahist, x, pdf, params, savepath, xlim=None):
   ptools.savefig(savepath)
 
 def plotFitRoot(datahist, x, pdf, params, savepath, xlim=None):
-  xframe = x.frame()
+  xc = x.Clone()
+  xc.setMin(xlim[0])
+  xc.setMax(xlim[1])
+
+  xframe = xc.frame()
   datahist.plotOn(xframe)
-  pdf.plotOn(xframe, ROOT.RooFit.Range("Full"))
+  pdf.plotOn(xframe, Range="Full")
   c = ROOT.TCanvas("c", "c", 400, 400)
   xframe.Draw()
   c.SaveAs(f"{savepath}_root.pdf")
 
 if __name__=="__main__":
   import argparse
-  parser = argparse.ArgumentParser(
-                    prog='Signal Fit Plotter',
-                    description='Plots signal fits')
+  parser = argparse.ArgumentParser(prog='Basic Fitter')
   parser.add_argument("in_file")
   parser.add_argument("out_file")
   parser.add_argument("--xlim", nargs=2, type=float, default=(115, 135))

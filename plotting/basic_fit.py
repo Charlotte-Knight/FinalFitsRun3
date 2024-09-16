@@ -8,6 +8,9 @@ log = logging.getLogger(__name__)
 import common.tools as tools
 import plotting.tools as ptools
 
+import ROOT
+ROOT.gROOT.SetBatch(True)
+
 def plotFit(datahist, x, pdf, params, savepath, xlim=None):
   log.info("Plotting fit")
   bin_centers, hist, uncert = tools.RooDataHist2Numpy(datahist, xlim=xlim)
@@ -36,13 +39,12 @@ def plotFit(datahist, x, pdf, params, savepath, xlim=None):
   ptools.savefig(savepath)
 
 def plotFitRoot(datahist, x, pdf, params, savepath, xlim=None):
-  import ROOT
   xframe = x.frame()
   datahist.plotOn(xframe)
   pdf.plotOn(xframe, ROOT.RooFit.Range("Full"))
   c = ROOT.TCanvas("c", "c", 400, 400)
   xframe.Draw()
-  c.SaveAs(f"{savepath}_root.png")
+  c.SaveAs(f"{savepath}_root.pdf")
 
 if __name__=="__main__":
   import argparse

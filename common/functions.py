@@ -123,30 +123,25 @@ class Bernstein(FinalFitsFunction):
       randomiseVars(self.vars)
 
   def getBasePdf(self, x, params):
-    # if not hasattr(ROOT, "RooBernsteinBatch"):
-    #   ROOT.gROOT.LoadMacro("common/RooBernsteinBatch.cxx")
-    #   print(ROOT.RooBernsteinBatch)
-    # return ROOT.RooBernsteinBatch(f"bern{order}", f"Bernstein{order}", x, ROOT.RooArgList(ROOT.RooFit.RooConst(1.0), *params))
-    return ROOT.RooBernsteinPatch(f"bern{self.order}", f"Bernstein{self.order}", x, ROOT.RooArgList(ROOT.RooFit.RooConst(1.0), *params))
-    #return ROOT.RooBernstein(f"bern{self.order}", f"Bernstein{self.order}", x, ROOT.RooArgList(ROOT.RooFit.RooConst(1.0), *params))
+    return ROOT.RooBernstein(f"bern{self.order}", f"Bernstein{self.order}", x, ROOT.RooArgList(ROOT.RooFit.RooConst(1.0), *params))
   
-# class BernsteinFast(FinalFitsFunction):
-#   def getDefaultBounds(self):
-#     return {
-#       "a": [0.1, 0, 10]
-#     }
+class BernsteinFast(FinalFitsFunction):
+  def getDefaultBounds(self):
+    return {
+      "a": [0.1, 0, 10]
+    }
   
-#   def initVars(self, bounds, randomise, order):
-#     self.vars = []
+  def initVars(self, bounds, randomise):
+    self.vars = []
 
-#     self.initBounds(bounds)
-#     self.params = [ROOT.RooRealVar(f"a{i}", f"a{i}", *self.bounds["a"]) for i in range(order)]
-#     self.vars += self.params
-#     if randomise:
-#       randomiseVars(self.vars)
+    self.initBounds(bounds)
+    self.params = [ROOT.RooRealVar(f"a{i}", f"a{i}", *self.bounds["a"]) for i in range(self.order)]
+    self.vars += self.params
+    if randomise:
+      randomiseVars(self.vars)
 
-#   def getBasePdf(self, x, params, order):
-#     return ROOT.RooBernsteinFast(order)(f"bern{order}", f"Bernstein{order}", x, ROOT.RooArgList(*params))
+  def getBasePdf(self, x, params):
+    return ROOT.RooBernsteinFast(self.order)(f"bern{self.order}", f"Bernstein{self.order}", x, ROOT.RooArgList(*params))
 
 class Exponential(FinalFitsFunctionSum):
   def getDefaultBounds(self):

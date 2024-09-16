@@ -27,19 +27,20 @@ def fitFunction(x, datahist, function, order, fit_ranges_str, n_bins_fitted):
 
   N = ROOT.RooRealVar("N", "N", datahist.sumEntries(), 0, datahist.sumEntries()*2)
   extmodel = ROOT.RooExtendPdf("extmodel", "extmodel", f.pdf, N, "Full")
-  #extmodel = ROOT.RooExtendPdf("extmodel", "extmodel", f.pdf, ROOT.RooFit.RooConst(datahist.sumEntries()), "Full")
   
   log.info("Starting fit")
   #res = extmodel.chi2FitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1))
-  #res = extmodel.fitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1))
-  robustFit(extmodel, datahist, fit_ranges_str, n_fits=5)
+  res = extmodel.fitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1), ROOT.RooFit.SumW2Error(True))
+  #robustFit(extmodel, datahist, fit_ranges_str, n_fits=5)
   tools.checkFunctionAtBounds(f)
-  #f.pdf.Print()
-  #res.Print()
-
+  
   twoNLL = 2*extmodel.createNLL(datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
   chi2 = extmodel.createChi2(datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
   
+  asimov_datahist = tools.makeAsimovDataHist(x, extmodel, norm=N.getVal())
+  twoNLL_asimov = 2*extmodel.createNLL(asimov_datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
+  print(chi2, chi2/n_bins_fitted, twoNLL, twoNLL_asimov, twoNLL-twoNLL_asimov)
+
   dof = int(n_bins_fitted - f.getDof())
   gof = ROOT.TMath.Prob(chi2, dof)
 
@@ -138,7 +139,7 @@ if __name__=="__main__":
   al.addLoggingArguments(parser)
   parser.add_argument("in_file", type=str)
   parser.add_argument("out_file", type=str)
-  parser.add_argument("--functions", "-f", type=str, nargs="+", default=["Bernstein", "Power", "Exponential", "ExpPoly"])
+  parser.add_argument("--functions", "-f", type=str, nargs="+", default=["Power", "Exponential", "ExpPoly"])
   parser.add_argument("--max-dof", "-o", type=int, default=5)
   parser.add_argument("--plot-savepath","-p", type=str, default=None)
   parser.add_argument("--fit-ranges", type=str, nargs="+", default=["100,120", "130,180"])

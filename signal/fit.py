@@ -28,9 +28,8 @@ def main(in_file, out_file, function="Gaussian", order=1, fit_ranges=[], plot_sa
 
   if plot_savepath is not None:
     xlim = (x.getMin(), x.getMax())
-    #xlim = (115, 135)
     plotting.basic_fit.plotFit(datahist, x, f.pdf, f.vars, plot_savepath, xlim=xlim)
-    #plotting.signal_fit.plotFitRoot(datahist, x, f.pdf, f.vars, plot_savepath, xlim=xlim)
+    plotting.basic_fit.plotFitRoot(datahist, x, f.pdf, f.vars, plot_savepath, xlim=xlim)
 
   log.info("Create output workspace")
   wsig = ROOT.RooWorkspace("wsig", "wsig")

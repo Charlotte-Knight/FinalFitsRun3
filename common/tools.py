@@ -40,6 +40,7 @@ def makeAsimovDataHist(x, pdf, norm=1):
   nBins = asimov_datahist.get()[0].getBins()
 
   bin_centers = [asimov_datahist.get(i)[0].getVal() for i in range(nBins)]
+  print(bin_centers)
   pdf_vals = getVal(pdf, x, bin_centers)
   for i in range(nBins):
     asimov_datahist.get(i)

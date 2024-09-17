@@ -7,7 +7,7 @@ log = logging.getLogger(__name__)
 
 def generateBinned(x, f, nevents, w, postfix="", randomise=False, asimov=False):
   if randomise:
-    functions.randomiseVars(f.vars)
+    f.randomiseVars()
   data = f.pdf.generateBinned(x, nevents, ExpectedData=asimov)
   data.SetName(f"data{postfix}")
   w.Import(data)
@@ -33,7 +33,7 @@ def main(out_file, function="Gaussian", order=1, nevents=10000, randomise=False,
   w = ROOT.RooWorkspace("w", "workspace")
 
   if ndatasets == 0:
-    generateBinned(x, f, nevents, w, randomise=randomise, asimov=asimov)
+    generateBinned(x, f, nevents, w, asimov=asimov)
   else:
     for i in tqdm(range(ndatasets)):
       generateBinned(x, f, nevents, w, randomise=randomise, asimov=asimov, postfix=i)

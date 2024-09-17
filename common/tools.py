@@ -65,27 +65,20 @@ def getNBinsFitted(x, fit_ranges):
   nbins_fitted = sum(inside_ranges)
   return nbins_fitted
 
-def checkPdfAtBounds(pdf, datahist):
-  vars = pdf.getParameters(datahist)
-  for var in vars:
-    if np.isclose(var.getVal(), var.getMin(), rtol=0.01) or np.isclose(var.getVal(), var.getMax(), rtol=0.01):
-      log.warning(f"Parameter {var.GetName()} from function {pdf.GetName()} is at its bounds")
-      log.warning(f"{var.GetName()}={var.getVal()}, low={var.getMin()}, high={var.getMax()}")
-
-def robustFit(pdf, datahist, fit_ranges_str, n_fits=4, recursive=True):
+def robustFit(f, datahist, fit_ranges_str, n_fits=4, recursive=True):
   NLLs = []
   vars_vals = []  
 
-  log.info(f"Fitting {pdf.GetName()} to {datahist.GetName()}. Doing {n_fits} fits from random initialisations.")
+  log.info(f"Fitting {f.pdf.GetName()} to {datahist.GetName()}. Doing {n_fits} fits from random initialisations.")
   for i in range(n_fits):
-    functions.randomiseVars(pdf.getParameters(datahist))
-    r = pdf.fitTo(datahist, Range=fit_ranges_str, PrintLevel=-1, Save=True)
+    f.randomiseVars()
+    r = f.pdf.fitTo(datahist, Range=fit_ranges_str, PrintLevel=-1, Save=True)
     NLLs.append(r.minNll())
-    vars_vals.append([var.getVal() for var in pdf.getParameters(datahist)])
+    vars_vals.append([var.getVal() for var in f.vars])
 
   best_vars_vals = vars_vals[np.argmin(NLLs)]
   for i, val in enumerate(best_vars_vals):
-    pdf.getParameters(datahist)[i].setVal(val)
+    f.vars[i].setVal(val)
 
   max_diff = 0.01
   max_n_fits = 1024
@@ -100,8 +93,8 @@ def robustFit(pdf, datahist, fit_ranges_str, n_fits=4, recursive=True):
     
     if recursive and n_fits < max_n_fits:
       n_fits_more = n_fits * 2
-      robustFit(pdf, datahist, fit_ranges_str, n_fits_more)
+      robustFit(f, datahist, fit_ranges_str, n_fits_more)
     else:
       raise Exception(f"Fit is unstable. Tried {n_fits} from random places and did not find acceptable convergence. Halted because we reached maximum number of fits ({max_n_fits}).")
 
-  checkPdfAtBounds(pdf, datahist)
+  f.checkBounds()

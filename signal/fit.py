@@ -29,7 +29,7 @@ def main(in_file, out_file, function="Gaussian", order=1, fit_ranges=[], #
 
   log.debug("Initialising fit function")
   f = getattr(functions, function)(x, postfix="cat0", order=order, randomise=True)
-  tools.robustFit(f.pdf, datahist, fit_ranges_str)
+  tools.robustFit(f, datahist, fit_ranges_str)
 
   if plot_savepath is not None:
     xlim = (x.getMin(), x.getMax()) if args.plot_range is None else args.plot_range

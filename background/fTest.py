@@ -10,7 +10,7 @@ def fitFunction(x, datahist, function, order, fit_ranges_str, n_bins_fitted):
   log.info(f"Initialising {function} (order {order})")
   f = getattr(functions, function)(x, postfix="cat0", order=order)
 
-  tools.robustFit(f.pdf, datahist, fit_ranges_str)
+  tools.robustFit(f, datahist, fit_ranges_str)
   
   twoNLL = 2*f.pdf.createNLL(datahist, Range=fit_ranges_str, Offset="bin").getVal()
   dof = int(n_bins_fitted - f.getDof())
@@ -112,7 +112,7 @@ if __name__=="__main__":
   al.addLoggingArguments(parser)
   parser.add_argument("in_file", type=str)
   parser.add_argument("out_file", type=str)
-  parser.add_argument("--functions", "-f", type=str, nargs="+", default=["Power", "Exponential", "ExpPoly", "Bernstein"])
+  parser.add_argument("--functions", "-f", type=str, nargs="+", default=["Power", "Exponential", "ExpPoly", "Bernstein", "Laurent"])
   parser.add_argument("--max-dof", "-o", type=int, default=5)
   parser.add_argument("--plot-savepath","-p", type=str, default=None)
   parser.add_argument("--fit-ranges", type=str, nargs="+", default=["100,115", "135,180"])

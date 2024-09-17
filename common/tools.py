@@ -65,17 +65,18 @@ def getNBinsFitted(x, fit_ranges):
   nbins_fitted = sum(inside_ranges)
   return nbins_fitted
 
-def checkFunctionAtBounds(f):
-  for var in f.vars:
+def checkPdfAtBounds(pdf, datahist):
+  vars = pdf.getParameters(datahist)
+  for var in vars:
     if np.isclose(var.getVal(), var.getMin(), rtol=0.01) or np.isclose(var.getVal(), var.getMax(), rtol=0.01):
-      log.warning(f"Parameter {var.GetName()} from function {f.pdf.GetName()} is at its bounds")
+      log.warning(f"Parameter {var.GetName()} from function {pdf.GetName()} is at its bounds")
       log.warning(f"{var.GetName()}={var.getVal()}, low={var.getMin()}, high={var.getMax()}")
 
 def robustFit(pdf, datahist, fit_ranges_str, n_fits=4, recursive=True):
   NLLs = []
   vars_vals = []  
 
-  log.debug(f"Performing robust fit. Doing {n_fits} fits from random places.")
+  log.info(f"Fitting {pdf.GetName()} to {datahist.GetName()}. Doing {n_fits} fits from random initialisations.")
   for i in range(n_fits):
     functions.randomiseVars(pdf.getParameters(datahist))
     r = pdf.fitTo(datahist, Range=fit_ranges_str, PrintLevel=-1, Save=True)
@@ -95,11 +96,12 @@ def robustFit(pdf, datahist, fit_ranges_str, n_fits=4, recursive=True):
   log.debug(f"Difference in minimum NLL from first and second half of fits is {NLL_diff}")
 
   if NLL_diff > max_diff:
-    log.warning(f"Fit is unstable when starting from {n_fits} random places.")
+    log.warning(f"Fit is unstable when starting from {n_fits} random initialisations.")
     
     if recursive and n_fits < max_n_fits:
       n_fits_more = n_fits * 2
-      log.info(f"Trying {n_fits_more} random places...")
       robustFit(pdf, datahist, fit_ranges_str, n_fits_more)
     else:
       raise Exception(f"Fit is unstable. Tried {n_fits} from random places and did not find acceptable convergence. Halted because we reached maximum number of fits ({max_n_fits}).")
+
+  checkPdfAtBounds(pdf, datahist)

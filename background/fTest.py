@@ -10,26 +10,13 @@ def fitFunction(x, datahist, function, order, fit_ranges_str, n_bins_fitted):
   log.info(f"Initialising {function} (order {order})")
   f = getattr(functions, function)(x, postfix="cat0", order=order)
 
-  N = ROOT.RooRealVar("N", "N", datahist.sumEntries(), 0, datahist.sumEntries()*2)
-  extmodel = ROOT.RooExtendPdf("extmodel", "extmodel", f.pdf, N, "Full")
+  tools.robustFit(f.pdf, datahist, fit_ranges_str)
   
-  log.info("Starting fit")
-  #res = extmodel.chi2FitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1))
-  res = extmodel.fitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1), ROOT.RooFit.SumW2Error(True))
-  tools.robustFit(extmodel, datahist, fit_ranges_str, n_fits=5)
-  tools.checkFunctionAtBounds(f)
-  
-  twoNLL = 2*extmodel.createNLL(datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
-  chi2 = extmodel.createChi2(datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
-  
-  asimov_datahist = tools.makeAsimovDataHist(x, extmodel, norm=N.getVal())
-  twoNLL_asimov = 2*extmodel.createNLL(asimov_datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
-  print(chi2, chi2/n_bins_fitted, twoNLL, twoNLL_asimov, twoNLL-twoNLL_asimov)
-
+  twoNLL = 2*f.pdf.createNLL(datahist, Range=fit_ranges_str, Offset="bin").getVal()
   dof = int(n_bins_fitted - f.getDof())
-  gof = ROOT.TMath.Prob(chi2, dof)
+  gof = ROOT.TMath.Prob(twoNLL, dof)
 
-  return {"f":f, "order": f.order, "dof": f.getDof(), "norm": N.getVal(), "twoNLL": twoNLL, "chi2": chi2, "gof_pval": gof, "ftest_pval":0}
+  return {"f":f, "order": f.order, "dof": f.getDof(), "twoNLL": twoNLL, "gof_pval": gof, "ftest_pval":0}
 
 def shouldStop(results, gof_threshold=0.01, ftest_threshold=0.05):
   return (results[-1]["ftest_pval"] > ftest_threshold) and (results[-1]["gof_pval"] > gof_threshold)
@@ -47,7 +34,7 @@ def shouldKeepGoing(results, do_all_orders, max_dof, gof_threshold=0.01, ftest_t
   else:
     return True
 
-def getResults(x, datahist, function, max_dof, fit_ranges_str, n_bins_fitted, plot_savepath, do_all_orders):
+def getResults(x, datahist, function, max_dof, fit_ranges_str, blinded_regions, n_bins_fitted, plot_savepath, do_all_orders):
   results = []
   order = 1
   while shouldKeepGoing(results, do_all_orders, max_dof):
@@ -66,7 +53,7 @@ def getResults(x, datahist, function, max_dof, fit_ranges_str, n_bins_fitted, pl
     order += 1
   
   if plot_savepath is not None:
-    plotting.fTest.plotFamily(datahist, x, results, plot_savepath, title=function)
+    plotting.fTest.plotFamily(datahist, x, results, plot_savepath, blinded_regions, function)
 
   return results
 
@@ -100,7 +87,7 @@ def createEnvelope(results):
 
   return pdfIndex, multipdf
 
-def main(in_file, out_file, functions, max_dof=5, fit_ranges=[], plot_savepath=None, do_all_orders=False):
+def main(in_file, out_file, functions, max_dof=5, fit_ranges=[], blinded_regions=[], plot_savepath=None, do_all_orders=False):
   x, dataset = tools.readEvents(in_file)
   fit_ranges_str = tools.setRanges(x, fit_ranges)
   n_bins_fitted = tools.getNBinsFitted(x, fit_ranges)
@@ -108,9 +95,10 @@ def main(in_file, out_file, functions, max_dof=5, fit_ranges=[], plot_savepath=N
   log.info("Creating datahist from dataset")
   datahist = ROOT.RooDataHist("datahist", "datahist", ROOT.RooArgList(x), dataset)
 
-  results = {function: getResults(x, datahist, function, max_dof, fit_ranges_str, n_bins_fitted, plot_savepath+function, do_all_orders) for function in functions}
+  results = {function: getResults(x, datahist, function, max_dof, fit_ranges_str, blinded_regions, n_bins_fitted, None if plot_savepath is None else plot_savepath+function, do_all_orders) for function in functions}
   results = filterResults(results)
-  plotting.fTest.plotEnvelope(datahist, x, results, plot_savepath+"Envelope")
+  if plot_savepath is not None:
+    plotting.fTest.plotEnvelope(datahist, x, results, plot_savepath+"Envelope", blinded_regions)
 
   createEnvelope(results)
 
@@ -124,12 +112,14 @@ if __name__=="__main__":
   al.addLoggingArguments(parser)
   parser.add_argument("in_file", type=str)
   parser.add_argument("out_file", type=str)
-  parser.add_argument("--functions", "-f", type=str, nargs="+", default=["Power", "Exponential", "ExpPoly"])
+  parser.add_argument("--functions", "-f", type=str, nargs="+", default=["Power", "Exponential", "ExpPoly", "Bernstein"])
   parser.add_argument("--max-dof", "-o", type=int, default=5)
   parser.add_argument("--plot-savepath","-p", type=str, default=None)
-  parser.add_argument("--fit-ranges", type=str, nargs="+", default=["100,120", "130,180"])
+  parser.add_argument("--fit-ranges", type=str, nargs="+", default=["100,115", "135,180"])
+  parser.add_argument("--blinded-regions", type=str, nargs="+", default=["115,135"])
   parser.add_argument("--do-all-orders", action="store_true")
   args = parser.parse_args()
 
   al.applyLoggingArguments(args)  
-  main(args.in_file, args.out_file, args.functions, args.max_dof, args.fit_ranges, args.plot_savepath, args.do_all_orders)
+  main(args.in_file, args.out_file, args.functions, args.max_dof, args.fit_ranges, 
+       args.blinded_regions, args.plot_savepath, args.do_all_orders)

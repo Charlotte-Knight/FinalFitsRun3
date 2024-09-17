@@ -4,6 +4,7 @@ mplhep.style.use("CMS")
 import os
 import common.tools as tools
 import logging
+import numpy as np
 log = logging.getLogger(__name__)
 
 title_dict = {
@@ -45,10 +46,19 @@ def savefig(savepath, extensions=["png", "pdf"], keep=False):
 def cmslabel():
   mplhep.cms.label("Work in Progress", data=True, lumi=138, com=13.6)
 
-def histPlotTemplate(datahist, xlim):
+def histPlotTemplate(datahist, xlim, blinded_regions=[]):
   bin_centers, hist, uncert = tools.RooDataHist2Numpy(datahist, xlim=xlim)
   bin_width = bin_centers[1] - bin_centers[0]
-  plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
+
+  blinded_idx = []
+  for region in blinded_regions:
+    for idx, bin_center in enumerate(bin_centers):
+      if float(region.split(",")[0]) < bin_center < float(region.split(",")[1]):
+        blinded_idx.append(idx)
+  
+  s = ~np.isin(np.arange(len(bin_centers)), blinded_idx)
+
+  plt.errorbar(bin_centers[s], hist[s], xerr=bin_width/2, yerr=uncert[s], capsize=2, fmt='k.')
 
   plt.xlabel(r"$m_{\gamma\gamma}$ [GeV]")
   plt.ylabel(f"Events / ( {bin_width:.2g} GeV )")

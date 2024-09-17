@@ -8,11 +8,11 @@ log = logging.getLogger(__name__)
 import common.tools as tools
 import plotting.tools as ptools
 
-def plotFamily(datahist, x, results, savepath, title=None):
+def plotFamily(datahist, x, results, savepath, blinded_regions=[], title=None):
   log.info("Plotting fTest fits")
   
   xlim = (100, 180)
-  bin_width = ptools.histPlotTemplate(datahist, xlim)
+  bin_width = ptools.histPlotTemplate(datahist, xlim, blinded_regions)
 
   sf = datahist.sumEntries() * bin_width
   xi = np.linspace(xlim[0], xlim[1], 1000)
@@ -23,11 +23,11 @@ def plotFamily(datahist, x, results, savepath, title=None):
   plt.legend()
   ptools.savefig(savepath)
   
-def plotEnvelope(datahist, x, results, savepath):
+def plotEnvelope(datahist, x, results, savepath, blinded_regions=[]):
   log.info("Plotting envelope")
 
   xlim = (100, 180)
-  bin_width = ptools.histPlotTemplate(datahist, xlim)
+  bin_width = ptools.histPlotTemplate(datahist, xlim, blinded_regions)
   
   sf = datahist.sumEntries() * bin_width
   xi = np.linspace(xlim[0], xlim[1], 1000)

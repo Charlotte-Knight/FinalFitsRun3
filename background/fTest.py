@@ -6,21 +6,6 @@ import logging
 import common.tools as tools
 log = logging.getLogger(__name__)
 
-def robustFit(pdf, datahist, fit_ranges_str, n_fits=5):
-  lowest_nll = None
-  for i in range(n_fits):
-    functions.randomiseVars(pdf.getParameters(datahist))
-    pdf.fitTo(datahist, ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1))
-    NLL = pdf.createNLL(datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()
-
-    if (lowest_nll is None) or (NLL < lowest_nll):
-      lowest_nll = NLL
-      best_vars_vals = [var.getVal() for var in pdf.getParameters(datahist)]
-      print(best_vars_vals)
-
-  for i, val in enumerate(best_vars_vals):
-    pdf.getParameters(datahist)[i].setVal(val)
-
 def fitFunction(x, datahist, function, order, fit_ranges_str, n_bins_fitted):
   log.info(f"Initialising {function} (order {order})")
   f = getattr(functions, function)(x, postfix="cat0", order=order)
@@ -31,7 +16,7 @@ def fitFunction(x, datahist, function, order, fit_ranges_str, n_bins_fitted):
   log.info("Starting fit")
   #res = extmodel.chi2FitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1))
   res = extmodel.fitTo(datahist, ROOT.RooFit.Save(), ROOT.RooFit.Range(fit_ranges_str), ROOT.RooFit.PrintLevel(-1), ROOT.RooFit.SumW2Error(True))
-  #robustFit(extmodel, datahist, fit_ranges_str, n_fits=5)
+  tools.robustFit(extmodel, datahist, fit_ranges_str, n_fits=5)
   tools.checkFunctionAtBounds(f)
   
   twoNLL = 2*extmodel.createNLL(datahist, ROOT.RooFit.Range(fit_ranges_str)).getVal()

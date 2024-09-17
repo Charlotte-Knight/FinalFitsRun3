@@ -33,7 +33,7 @@ def main(in_file, out_file, function="Gaussian", order=1, fit_ranges=[], #
   extmodel = ROOT.RooExtendPdf("extmodel", "extmodel", f.pdf, N, "Full")
 
   log.info("Starting fit")
-  extmodel.fitTo(datahist, SumW2Error=True, Range=fit_ranges_str, Save=True, PrintLevel=-1)
+  tools.robustFit(extmodel, datahist, fit_ranges_str)
 
   if plot_savepath is not None:
     xlim = (x.getMin(), x.getMax()) if args.plot_range is None else args.plot_range

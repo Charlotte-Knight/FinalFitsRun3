@@ -35,4 +35,4 @@ def getData(path):
   assert f.cd(info["root_directory"])
   w = f.Get(info["workspace_name"])
   data = w.data("")
-  return w
+  return data

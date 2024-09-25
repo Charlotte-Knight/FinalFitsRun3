@@ -1,6 +1,5 @@
 import ROOT
 import logging
-import os
 
 finalfits_verbose_dict = {
   -2: "CRITICAL",

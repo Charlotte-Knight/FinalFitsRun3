@@ -1,7 +1,6 @@
 import ROOT
 import common.functions as functions
 import plotting.fTest
-import numpy as np
 import logging
 import common.tools as tools
 log = logging.getLogger(__name__)

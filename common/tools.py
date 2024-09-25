@@ -1,7 +1,6 @@
 import ROOT
 import numpy as np
 import logging
-import common.functions as functions
 log = logging.getLogger(__name__)
 
 def RooDataHist2Numpy(datahist, xlim=None):
@@ -44,24 +43,30 @@ def readEvents(filename):
   data = w.data("data")
   return x, data
 
-def setRanges(x, fit_ranges):
-  x.setRange("Full", x.getMin(), x.getMax())
-  for i, r in enumerate(fit_ranges):
+def parseRanges(fit_ranges):
+  ranges = []
+  for r in fit_ranges:
     low, high = r.split(",")
     low, high = float(low), float(high)
-    x.setRange(f"range{i}", low, high)
-  fit_ranges_str = ",".join([f"range{i}" for i, r in enumerate(fit_ranges)])
+    ranges.append((low, high))
+  return ranges
+
+def setRanges(x, fit_ranges):
+  x.setRange("Full", x.getMin(), x.getMax())  
+  for i, r in enumerate(parseRanges(fit_ranges)):
+    x.setRange(f"range{i}", r[0], r[1])
+
+  fit_ranges_str = ",".join([f"range{i}" for i in range(len(fit_ranges))])
   return fit_ranges_str
 
 def getNBinsFitted(x, fit_ranges):
   bin_boundaries = np.linspace(x.getMin(), x.getMax(), x.getBins()+1)
   bin_centers = (bin_boundaries[:-1] + bin_boundaries[1:]) / 2
+  
   inside_ranges = np.zeros_like(bin_centers, dtype=bool)
+  for r in parseRanges(fit_ranges):
+    inside_ranges = inside_ranges | ((bin_centers > r[0]) & (bin_centers < r[1]))
 
-  for i, r in enumerate(fit_ranges):
-    low, high = r.split(",")
-    low, high = float(low), float(high)
-    inside_ranges = inside_ranges | ((bin_centers > low) & (bin_centers < high))
   nbins_fitted = sum(inside_ranges)
   return nbins_fitted
 

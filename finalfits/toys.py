@@ -36,6 +36,7 @@ def main(out_file, pdf_name="Gaussian", order=1, nevents=10000, randomize=False,
   x.setBins(nbins)
 
   pdf = getattr(pdfs, pdf_name)(x, order=order)
+  pdf.roopdf.Print()
   if randomize:
     pdf.randomize_params()
   log.debug(str(pdf.roopdf).strip("\n"))

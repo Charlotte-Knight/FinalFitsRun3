@@ -11,8 +11,8 @@ log = logging.getLogger(__name__)
 mplhep.style.use("CMS")
 ROOT.gROOT.SetBatch(True)
 
-def plotFit(datahist, x, pdf, params, savepath, xlim=None):
-  log.info("Plotting fit")
+def plotHist(datahist, x, savepath, xlim=None):
+  log.info("Plotting histogram")
   bin_centers, hist, uncert = utils.RooDataHist2Numpy(datahist, xlim=xlim)
 
   if xlim is None:
@@ -20,35 +20,54 @@ def plotFit(datahist, x, pdf, params, savepath, xlim=None):
 
   bin_width = bin_centers[1] - bin_centers[0]
   plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
+  plt.xlabel(r"$m_{\gamma\gamma}$")
+  plt.ylim(bottom=0)
+  utils.savefig(savepath)
+  
+def plotFit(datahist, pdf, savepath, xlim=None):
+  log.info("Plotting fit")
+  bin_centers, hist, uncert = utils.RooDataHist2Numpy(datahist, xlim=xlim)
+
+  if xlim is None:
+    xlim = (pdf.x.getMin(), pdf.x.getMax())
+
+  bin_width = bin_centers[1] - bin_centers[0]
+  plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
 
   sf = datahist.sumEntries() * bin_width
   xi = np.linspace(xlim[0], xlim[1], 1000)
-  plt.plot(xi, utils.getVal(pdf, x, xi)*sf)
+  plt.plot(xi, pdf(xi)*sf)
 
-  text = str(pdf.getTitle()) + " Fit"
+  text = str(pdf.roopdf.getTitle()) + " Fit"
   plt.text(0.05, 0.95, text, verticalalignment='top', transform=plt.gca().transAxes)
   text = ""
-  for param in params:
-    text += utils.textify(str(param.getTitle())) + r"$=%.2f \pm %.2f$"%(param.getVal(), param.getError()) + "\n"
+  
+  vals = pdf.final_params_vals
+  errs = pdf.final_params_errs
+  
+  for name in vals:
+    text += utils.textify(name) + r"$=%.2f \pm %.2f$"%(vals[name], errs[name]) + "\n"
+  # for param in params:
+  #   text += utils.textify(str(param.getTitle())) + r"$=%.2f$"%(param.getVal()) + "\n"
   plt.text(0.06, 0.89, text, verticalalignment='top', transform=plt.gca().transAxes, fontsize='small')
-  chi2 = ((hist-utils.getVal(pdf, x, bin_centers)*sf)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
+  chi2 = ((hist-pdf(bin_centers)*sf)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
   plt.text(max(xi), max(hist+uncert), r"$\chi^2 / dof$=%.2f"%chi2, verticalalignment='top', horizontalalignment='right')
  
   plt.xlabel(r"$m_{\gamma\gamma}$")
   plt.ylim(bottom=0)
   utils.savefig(savepath)
 
-def plotFitRoot(datahist, x, pdf, params, savepath, xlim=None):
-  xc = x.Clone()
+def plotFitRoot(datahist, pdf, savepath, xlim=None):
+  xc = pdf.x.Clone()
   if xlim is None:
-    xlim = (x.getMin(), x.getMax())
+    xlim = (pdf.x.getMin(), pdf.x.getMax())
   xc.setMin(xlim[0])
   xc.setMax(xlim[1])
 
   xframe = xc.frame()
   datahist.plotOn(xframe)
-  pdf.plotOn(xframe)
-  pdf.plotOn(xframe, Range="Full")
+  pdf.roopdf.plotOn(xframe)
+  pdf.roopdf.plotOn(xframe, Range="Full")
   c = ROOT.TCanvas("c", "c", 400, 400)
   xframe.Draw()
   c.SaveAs(f"{savepath}_root.pdf")

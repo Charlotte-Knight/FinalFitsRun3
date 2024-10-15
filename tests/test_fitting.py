@@ -23,8 +23,6 @@ fitting_tests += [
 
 @pytest.mark.parametrize("pdf_name,order,method,blind_status,chi2_threshold", fitting_tests)
 def test_fit(pdf_name, order, method, blind_status, chi2_threshold):
-  np.random.seed(0)
-
   r = (115, 135) if pdf_name in ["Gaussian", "DCB"] else (100, 180)
   nbins = 80
   x = ROOT.RooRealVar("x", "x", r[0], r[1])
@@ -51,4 +49,30 @@ def test_fit(pdf_name, order, method, blind_status, chi2_threshold):
   if chi2_dof > chi2_threshold:
     plotting.plotFit(datahist, pdf, f"tests/plots/{pdf_name}{order}_{method}_{blind_status}")
     
+  assert chi2_dof <= chi2_threshold
+  
+def test_fit_transformed_param():
+  x = ROOT.RooRealVar("x", "x", 115, 135)
+  nbins = 80
+  x.setBins(nbins)
+
+  MH = ROOT.RooRealVar("MH", "MH", 125)
+  MH.setConstant(True)
+
+  transforms = {"mean*": [MH, 1]}
+
+  pdf = pdfs.Gaussian(x, transforms=transforms)
+  pdf.randomize_params(seed=0)
+  datahist = toys.generateBinned(x, pdf, 100000, asimov=True)
+
+  fitting.fit(pdf, datahist, method="robust", seed=0)
+
+  chi2 = pdf.roopdf.createChi2(datahist).getVal()
+  dof = int(nbins - pdf.get_dof())
+  chi2_dof = chi2 / dof
+
+  chi2_threshold = 0.02
+  if chi2_dof > chi2_threshold:
+    plotting.plotFit(datahist, pdf, f"tests/plots/test_fit_transformed_param")
+
   assert chi2_dof <= chi2_threshold

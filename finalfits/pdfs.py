@@ -7,6 +7,7 @@ A FinalFitsPdf instance contains the RooFit pdf object and its parameters.
 
 import logging
 from typing import Optional
+import re
 
 import numpy as np
 import ROOT
@@ -87,16 +88,24 @@ class FinalFitsPdf:
     """
     self.bounds = bounds if bounds is not None else self.default_bounds    
 
+  def get_transform(self, name):
+    matches = []
+    for k, v in self.transforms.items():
+      if re.match(k, name):
+        matches.append(v)
+    assert len(matches) <= 1, f"Multiple matches for {name} in {self.transforms}"
+    return matches[0] if matches else None
+
   def init_param(self, name, i=None):
     var_name = name if i is None else f"{name}{i+1}"
     bounds = np.array(self.bounds[name])
     
-    if name in self.transforms:
+    t = self.get_transform(name)
+    if t:
       # useful to keep track later
-      if name != var_name:
-        self.transforms[var_name] = self.transforms[name]
+      self.transforms[name] = t
+      self.transforms[var_name] = t
       
-      t = self.transforms[name]
       bounds_transformed = sorted((bounds - t[0].getVal()) / t[1].getVal())
       
       var_free_name = f"{var_name}_free"
@@ -138,6 +147,10 @@ class FinalFitsPdf:
       shape_params = [self.params[f"{name}{i+1}"] for i in range(self.order) for name in self.default_bounds]
 
     self.roopdf = self.roopdf_constructor(name, name, self.x_norm, *shape_params)
+
+  def overide_params(self, params: dict[str, ROOT.RooAbsReal]) -> None:
+    for name, p in params.items():
+      self.params[name] = p    
 
   @property
   def free_params(self):
@@ -242,7 +255,7 @@ class DCB(FinalFitsPdf):
     "alphaL": [1, 0.1, 5],
     "nL": [5, 0.1, 20],
     "alphaR": [1, 0.1, 5],
-    "nR": [20, 0.1, 20]
+    "nR": [10, 0.1, 20]
   }
   default_transforms = {
     "mean": [125, 1], 

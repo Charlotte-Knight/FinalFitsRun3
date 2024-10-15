@@ -5,57 +5,58 @@ import matplotlib.pyplot as plt
 import mplhep
 import ROOT
 
-from finalfits import utils
+from finalfits import utils, pdfs
 
 log = logging.getLogger(__name__)
 mplhep.style.use("CMS")
 ROOT.gROOT.SetBatch(True)
 
-def plotHist(datahist, x, savepath, xlim=None):
+def plotHist(datahist, savepath=None, xlim=None):
   log.info("Plotting histogram")
   bin_centers, hist, uncert = utils.RooDataHist2Numpy(datahist, xlim=xlim)
 
+  bin_width = bin_centers[1] - bin_centers[0]
+  plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
+  plt.xlabel(r"$m_{\gamma\gamma}$")
+  plt.ylim(bottom=0)
+  if savepath:
+    utils.savefig(savepath)
+
+  return bin_centers, hist, uncert
+  
+def plotFit(datahist, pdf, x, savepath=None, xlim=None):
+  if isinstance(pdf, pdfs.FinalFitsPdf):
+    roopdf = pdf.roopdf
+  elif isinstance(pdf, ROOT.RooAbsPdf):
+    roopdf = pdf
+  else:
+    raise ValueError("pdf must be either a FinalFitsPdf or a RooAbsPdf")
+  
+  log.info("Plotting fit")
   if xlim is None:
     xlim = (x.getMin(), x.getMax())
-
-  bin_width = bin_centers[1] - bin_centers[0]
-  plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
-  plt.xlabel(r"$m_{\gamma\gamma}$")
-  plt.ylim(bottom=0)
-  utils.savefig(savepath)
   
-def plotFit(datahist, pdf, savepath, xlim=None):
-  log.info("Plotting fit")
-  bin_centers, hist, uncert = utils.RooDataHist2Numpy(datahist, xlim=xlim)
-
-  if xlim is None:
-    xlim = (pdf.x.getMin(), pdf.x.getMax())
-
+  bin_centers, hist, uncert = plotHist(datahist, None, xlim)
   bin_width = bin_centers[1] - bin_centers[0]
-  plt.errorbar(bin_centers, hist, xerr=bin_width/2, yerr=uncert, capsize=2, fmt='k.')
-
   sf = datahist.sumEntries() * bin_width
   xi = np.linspace(xlim[0], xlim[1], 1000)
-  plt.plot(xi, pdf(xi)*sf)
+  plt.plot(xi, utils.getVal(roopdf, x, xi)*sf)
 
-  text = str(pdf.roopdf.getTitle()) + " Fit"
+  text = str(roopdf.getTitle()) + " Fit"
   plt.text(0.05, 0.95, text, verticalalignment='top', transform=plt.gca().transAxes)
-  text = ""
-  
-  vals = pdf.final_params_vals
-  errs = pdf.final_params_errs
-  
-  for name in vals:
-    text += utils.textify(name) + r"$=%.2f \pm %.2f$"%(vals[name], errs[name]) + "\n"
-  # for param in params:
-  #   text += utils.textify(str(param.getTitle())) + r"$=%.2f$"%(param.getVal()) + "\n"
-  plt.text(0.06, 0.89, text, verticalalignment='top', transform=plt.gca().transAxes, fontsize='small')
-  chi2 = ((hist-pdf(bin_centers)*sf)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
+  chi2 = ((hist-utils.getVal(roopdf, x, bin_centers)*sf)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
   plt.text(max(xi), max(hist+uncert), r"$\chi^2 / dof$=%.2f"%chi2, verticalalignment='top', horizontalalignment='right')
- 
-  plt.xlabel(r"$m_{\gamma\gamma}$")
-  plt.ylim(bottom=0)
-  utils.savefig(savepath)
+  
+  if isinstance(pdf, pdfs.FinalFitsPdf):
+    vals = pdf.final_params_vals
+    errs = pdf.final_params_errs
+    text = ""
+    for name in vals:
+      text += utils.textify(name) + r"$=%.2f \pm %.2f$"%(vals[name], errs[name]) + "\n"
+    plt.text(0.06, 0.89, text, verticalalignment='top', transform=plt.gca().transAxes, fontsize='small')
+  
+  if savepath:
+    utils.savefig(savepath)
 
 def plotFitRoot(datahist, pdf, savepath, xlim=None):
   xc = pdf.x.Clone()

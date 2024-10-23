@@ -64,10 +64,10 @@ title_dict = {
       "mean":r"$\mu$",
       "sigma":r"$\sigma$",
       "sigmaLR":r"$\sigma$",
-      "alphaL":r"$\alpha_L$",
-      "nL":r"$n_L$",
-      "alphaR":r"$\alpha_R$",
-      "nR":r"$n_R$",
+      "alphaL":r"$\alpha^L$",
+      "nL":r"$n^L$",
+      "alphaR":r"$\alpha^R$",
+      "nR":r"$n^R$",
       "c":r"$c$"
       }
 

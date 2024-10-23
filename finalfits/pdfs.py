@@ -44,7 +44,7 @@ class FinalFitsPdf:
     
   def __init__(self, x: ROOT.RooRealVar, prefix: str = "", postfix: str = "",
                bounds: Optional[dict[str, tuple[float, float, float]]] = None,
-               order: int = 1, transforms = None) -> None:
+               order: int = 1, transforms = None, polys = None) -> None:
     """
     Args:
         x (ROOT.RooRealVar): the random variable (usually mass) of the pdf
@@ -56,8 +56,9 @@ class FinalFitsPdf:
     if order > self.max_order:
       raise ValueError(f"Order of {self.__class__.__name__} is too high. Max order is {self.max_order}.")
     self.order = order
+    self.init_param_bounds(bounds)
     self.init_transforms(transforms)
-    self.init_parameter_bounds(bounds)
+    self.init_polys(polys)
     self.init_params()
     self.init_x(x)
     self.init_roopdf()
@@ -66,65 +67,88 @@ class FinalFitsPdf:
   def __call__(self, xi):
     return utils.getVal(self.roopdf, self.x, xi)
 
-  # def __str__(self) -> str:
-  #   s = f"{self.__class__.__name__} of order {self.order} with parameters:\n"
-  #   for p in self.params:
-  #     s += f"{p.GetName()} = {p.getVal():.2f}, "
-  #   return s
+  def get_final_shape_param_names(self):
+    """Return all the names of the shape parameters used to initialize the pdf"""
+    return [f"{name}{i+1}" for i in range(self.order) for name in self.default_bounds]
+  
+  def expand_config(self, config, default_config, require_match=False):
+    """
+    Helper method to expand the param bounds, transforms and polys config dictionaries.
+    Is needed when for when wildcards are used.
+    """
+    config = config if config else default_config
+    expanded_config = {}
 
-  def init_transforms(self, transforms):
-    transforms = transforms if transforms is not None else self.default_transforms
-    self.transforms = {}
-    for name, t in transforms.items():
-      t0 = t[0] if isinstance(t[0], ROOT.RooAbsReal) else ROOT.RooFit.RooConst(t[0])
-      t1 = t[1] if isinstance(t[1], ROOT.RooAbsReal) else ROOT.RooFit.RooConst(t[1])
-      self.transforms[name] = (t0, t1)
-    
-  def init_parameter_bounds(self, bounds: dict[str, tuple[float, float, float]]) -> None:
+    for name in self.get_final_shape_param_names():
+      matches = [k for k in config if re.match(k, name)]
+      if require_match:
+        assert len(matches) == 1, f"No match or multiple matches for {name} in config"
+      else:
+        assert len(matches) <= 1, f"Multiple matches for {name} in config"
+      
+      expanded_config[name] = config[matches[0]] if matches else None
+    return expanded_config
+  
+  def init_param_bounds(self, bounds: dict[str, tuple[float, float, float]]) -> None:
     """Initialize bounds for parameters of the pdf
 
     Args:
         bounds (dict[str, tuple[float, float, float]]): Dictionary with parameter names as keys and tuples with (default value, min, max) as values.
     """
-    self.bounds = bounds if bounds is not None else self.default_bounds    
+    self.bounds = self.expand_config(bounds, self.default_bounds, require_match=True)
 
-  def get_transform(self, name):
-    matches = []
-    for k, v in self.transforms.items():
-      if re.match(k, name):
-        matches.append(v)
-    assert len(matches) <= 1, f"Multiple matches for {name} in {self.transforms}"
-    return matches[0] if matches else None
+  def init_transforms(self, transforms):
+    self.transforms = self.expand_config(transforms, self.default_transforms)
+    for name, t in self.transforms.items():
+      if t:
+        t0 = t[0] if isinstance(t[0], ROOT.RooAbsReal) else ROOT.RooFit.RooConst(t[0])
+        t1 = t[1] if isinstance(t[1], ROOT.RooAbsReal) else ROOT.RooFit.RooConst(t[1])
+        self.transforms[name] = (t0, t1)
 
-  def init_param(self, name, i=None):
-    var_name = name if i is None else f"{name}{i+1}"
-    bounds = np.array(self.bounds[name])
-    
-    t = self.get_transform(name)
-    if t:
-      # useful to keep track later
-      self.transforms[name] = t
-      self.transforms[var_name] = t
-      
-      bounds_transformed = sorted((bounds - t[0].getVal()) / t[1].getVal())
-      
-      var_free_name = f"{var_name}_free"
-      self.params[var_free_name] = ROOT.RooRealVar(var_free_name, var_free_name, *bounds_transformed)
-      self.params[var_name] = ROOT.RooFormulaVar(var_name, var_name, f"@0*@2+@1", 
-                                               [self.params[var_free_name], t[0], t[1]])
-    else:
-      self.params[var_name] = ROOT.RooRealVar(var_name, var_name, *bounds)
+  def init_polys(self, polys):
+    self.polys = self.expand_config(polys, {})
+    for name, p in self.polys.items():
+      if p and not isinstance(p[0], ROOT.RooAbsReal):
+        self.polys[name][0] = ROOT.RooFit.RooConst(p[0])
 
   def init_params(self):
     """Initialize parameters (RooRealVars) of the pdf"""
     self.params = {}
-    if self.order == 1:
-      for name in self.bounds:
-        self.init_param(name)
-    else:
-      for i in range(self.order):
-        for name in self.bounds:
-          self.init_param(name, i)
+    for name in self.get_final_shape_param_names():
+      bounds = np.array(self.bounds[name])
+      transform = self.transforms[name]
+      poly = self.polys[name]
+
+      if not (transform or poly):
+        self.params[name] = ROOT.RooRealVar(name, name, *bounds)
+        continue
+
+      free_name = f"{name}_free" if transform else name
+      bounds_transformed = (bounds - transform[0].getVal()) / transform[1].getVal() if transform else bounds
+
+      if poly:
+        poly_var, poly_order = poly
+
+        pcn = lambda i: f"{free_name}_polycoeff{i}" #polycoeff name
+        # # passing through the bounds during initialization not yet implemented
+        polycoeff_bounds = [self.bounds[pcn(i)] if pcn(i) in self.bounds else (0.0, -0.02, 0.02) for i in range(poly_order+1)]
+        polycoeff_bounds[1] = (bounds_transformed[0]/poly_var.getVal(), -0.02, 0.02)
+        
+        polycoeffs = [ROOT.RooRealVar(f"{free_name}_polycoeff{i}", f"{free_name}_polycoeff{i}", *polycoeff_bounds[i])
+                      for i in range(poly_order+1)]
+        
+        formula_str = "+".join([f"@{i+1}*@0**{i}" for i in range(poly_order+1)])
+        poly = ROOT.RooFormulaVar(free_name, free_name, formula_str, [poly_var]+polycoeffs)
+        
+        self.params[free_name] = poly
+        for i, c in enumerate(polycoeffs):
+          self.params[c.GetName()] = c
+      else:
+        self.params[free_name] = ROOT.RooRealVar(free_name, free_name, *bounds_transformed)
+            
+      if transform:
+        self.params[name] = ROOT.RooFormulaVar(name, name, f"@0*@2+@1",
+                                   [self.params[free_name], transform[0], transform[1]])
   
   def init_x(self, x) -> None:
     self.x = x
@@ -133,24 +157,20 @@ class FinalFitsPdf:
     else:
       self.x_norm = x
 
-  def init_roopdf(self) -> None:
+  def init_roopdf(self, name = None) -> None:
     """Initialize the RooAbsPdf object
 
     Args:
         x (ROOT.RooRealVar): the random variable (usually mass) of the pdf
     """
-    name = f"{self.__class__.__name__}{self.order}"
-
-    if self.order == 1:
-      shape_params = [self.params[name] for name in self.default_bounds]
-    else:
-      shape_params = [self.params[f"{name}{i+1}"] for i in range(self.order) for name in self.default_bounds]
-
+    name = name if name else f"{self.__class__.__name__}{self.order}"
+    shape_params = [self.params[name] for name in self.get_final_shape_param_names()]
     self.roopdf = self.roopdf_constructor(name, name, self.x_norm, *shape_params)
 
-  def overide_params(self, params: dict[str, ROOT.RooAbsReal]) -> None:
-    for name, p in params.items():
-      self.params[name] = p    
+  @property
+  def poly_names(self):
+    """Names of the params which are polynomials"""
+    return [k for (k,v) in self.polys.items() if v]
 
   @property
   def free_params(self):
@@ -192,8 +212,10 @@ class FinalFitsPdf:
     Args:
         seed (bool, optional): random seed. Defaults to None.
     """
+    print("randomizing")
     rng = np.random.default_rng(seed)
     for p in self.free_params.values():
+      print(p.GetName(), p.getMin(), p.getMax())
       p.setVal(rng.uniform(p.getMin(), p.getMax()))
 
   def get_dof(self) -> int:
@@ -242,9 +264,9 @@ class Gaussian(FinalFitsPdfSum):
     "mean": [125, 120, 130],
     "sigma": [1.5, 1, 5]
   }
-  default_transforms = {
-    "mean": [125, 1], 
-  }
+  # default_transforms = {
+  #   "mean": [125, 1], 
+  # }
 
 class DCB(FinalFitsPdf):
   """Double Crystal Ball pdf"""

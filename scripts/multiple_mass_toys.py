@@ -22,9 +22,8 @@ def main(out_file, masses, pdf_name="Gaussian", order=1, nevents=10000, randomiz
 
   MH = ROOT.RooRealVar("MH", "MH", 125)
   MH.setConstant(True)
-  pdf = getattr(pdfs, pdf_name)(x, order=order,
-                                transforms={"mean*": [MH, 1]}, polys={"mean*|sigma*": [MH, 1]})  
-  pdf.roopdf.Print()
+  pdf = getattr(pdfs, pdf_name)(x, order=order, transforms={"mean.*": [MH, 1]}, 
+                                polys={"mean.*": [MH, 1], "sigma.*": [MH, 1]})
   if randomize:
     pdf.randomize_params()
   log.debug(str(pdf.roopdf).strip("\n"))
@@ -34,7 +33,7 @@ def main(out_file, masses, pdf_name="Gaussian", order=1, nevents=10000, randomiz
   w = ROOT.RooWorkspace("w", "workspace")
 
   for m in masses:
-    MH.setVal(m)
+    pdf["MH"] = m
     toys.generateBinned(x, pdf, nevents, w, asimov=asimov, postfix=f"_{m}")
 
   w.writeToFile(out_file)

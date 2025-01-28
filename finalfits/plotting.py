@@ -24,36 +24,28 @@ def plotHist(datahist, savepath=None, xlim=None):
 
   return bin_centers, hist, uncert
   
-def plotFit(datahist, pdf, x, savepath=None, xlim=None):
-  if isinstance(pdf, pdfs.FinalFitsPdf):
-    roopdf = pdf.roopdf
-  elif isinstance(pdf, ROOT.RooAbsPdf):
-    roopdf = pdf
-  else:
-    raise ValueError("pdf must be either a FinalFitsPdf or a RooAbsPdf")
-  
+def plotFit(datahist, pdf, x, savepath=None, xlim=None):  
   log.info("Plotting fit")
   if xlim is None:
     xlim = (x.getMin(), x.getMax())
   
   bin_centers, hist, uncert = plotHist(datahist, None, xlim)
   bin_width = bin_centers[1] - bin_centers[0]
-  sf = datahist.sumEntries() * bin_width
   xi = np.linspace(xlim[0], xlim[1], 1000)
-  plt.plot(xi, utils.getVal(roopdf, x, xi)*sf)
+  plt.plot(xi, pdf(xi)*bin_width)
 
-  text = str(roopdf.getTitle()) + " Fit"
+  text = str(pdf.plot_title) + " Fit"
   plt.text(0.05, 0.95, text, verticalalignment='top', transform=plt.gca().transAxes)
-  chi2 = ((hist-utils.getVal(roopdf, x, bin_centers)*sf)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
+  chi2 = ((hist-pdf(bin_centers)*bin_width)**2 / uncert**2).sum() / len(hist) #chi2 per d.o.f
   plt.text(max(xi), max(hist+uncert), r"$\chi^2 / dof$=%.2f"%chi2, verticalalignment='top', horizontalalignment='right')
   
-  if isinstance(pdf, pdfs.FinalFitsPdf):
-    vals = pdf.final_params_vals
-    errs = pdf.final_params_errs
-    text = ""
-    for name in vals:
-      text += utils.textify(name) + r"$=%.2f \pm %.2f$"%(vals[name], errs[name]) + "\n"
-    plt.text(0.06, 0.89, text, verticalalignment='top', transform=plt.gca().transAxes, fontsize='small')
+  vals = pdf.final_params_vals
+  errs = pdf.final_params_errs
+  text = ""
+  for name in vals:
+    plot_name = name if pdf.order > 1 else name.replace("1", "")
+    text += utils.textify(plot_name) + r"$=%.2f \pm %.2f$"%(vals[name], errs[name]) + "\n"
+  plt.text(0.06, 0.89, text, verticalalignment='top', transform=plt.gca().transAxes, fontsize='small')
   
   if savepath:
     utils.savefig(savepath)

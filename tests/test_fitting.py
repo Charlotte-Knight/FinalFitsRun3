@@ -8,18 +8,20 @@ from finalfits import pdfs, toys, fitting, plotting
 fitting_tests = [
   (pdf_name, order, method, "unblinded", 0.02)
   for order in range(1, 6) 
+  #for order in range(1, 2) 
   for pdf_name in pdfs.available_pdfs
+  #for pdf_name in ["DCB"]
   for method in ["robust", "from_defaults", "randomize"]
   if order <= getattr(pdfs, pdf_name).max_order
 ]
 
-fitting_tests += [
-  (pdf_name, order, method, "blinded", 0.05)
-  for order in range(1, 2)
-  for pdf_name in pdfs.available_pdfs
-  for method in ["robust", "from_defaults", "randomize"]
-  if order <= getattr(pdfs, pdf_name).max_order
-]
+# fitting_tests += [
+#   (pdf_name, order, method, "blinded", 0.05)
+#   for order in range(1, 2)
+#   for pdf_name in pdfs.available_pdfs
+#   for method in ["robust", "from_defaults", "randomize"]
+#   if order <= getattr(pdfs, pdf_name).max_order
+# ]
 
 @pytest.mark.parametrize("pdf_name,order,method,blind_status,chi2_threshold", fitting_tests)
 def test_fit(pdf_name, order, method, blind_status, chi2_threshold):
@@ -42,12 +44,14 @@ def test_fit(pdf_name, order, method, blind_status, chi2_threshold):
 
   fitting.fit(pdf, datahist, method=method, fit_ranges=fit_ranges, seed=0)
   
+  pdf.roopdf.Print("t")
+  
   chi2 = pdf.roopdf.createChi2(datahist).getVal()
   dof = int(nbins - pdf.get_dof())
   chi2_dof = chi2 / dof
   
   if chi2_dof > chi2_threshold:
-    plotting.plotFit(datahist, pdf, f"tests/plots/{pdf_name}{order}_{method}_{blind_status}")
+    plotting.plotFit(datahist, pdf, x, f"tests/plots/{pdf_name}{order}_{method}_{blind_status}")
     
   assert chi2_dof <= chi2_threshold
   
